@@ -1,3 +1,2 @@
 dataset/*
-unknown_faces
-encodings.pickle
+unknown_faces/*
