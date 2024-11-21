@@ -16,7 +16,7 @@ known_face_names = data["names"]
 # Initialize the USB camera
 cap = cv2.VideoCapture(0)
 
-# Initialize our variables
+# Initialize variables
 cv_scaler = 2  # Hệ số tỉ lệ giảm khung hình (giảm ít hơn để giữ chi tiết)
 face_locations = []
 face_encodings = []
@@ -24,8 +24,8 @@ face_names = []
 frame_count = 0
 start_time = time.time()
 fps = 0
-unknown_faces_dir = "unknown_faces"  # Thư mục lưu ảnh Unknown
-csv_file = "recognized_faces.csv"  # File CSV lưu thông tin
+unknown_faces_dir = "unknown_faces"  # Unknown directory
+csv_file = "recognized_faces.csv"  # CSV file
 
 # Track recognized names to avoid duplicate CSV entries
 recognized_names = set()
@@ -45,14 +45,16 @@ def process_frame(frame):
     global face_locations, face_encodings, face_names
 
     # Resize the frame using cv_scaler to increase performance
-    resized_frame = cv2.resize(frame, (0, 0), fx=(1 / cv_scaler), fy=(1 / cv_scaler))
+    resized_frame = cv2.resize(frame, (0, 0), fx=(
+        1 / cv_scaler), fy=(1 / cv_scaler))
 
     # Convert the image from BGR to RGB colour space
     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
 
     # Find all the faces and face encodings in the current frame of video
     face_locations = face_recognition.face_locations(rgb_resized_frame)
-    face_encodings = face_recognition.face_encodings(rgb_resized_frame, face_locations)
+    face_encodings = face_recognition.face_encodings(
+        rgb_resized_frame, face_locations)
 
     # If no faces are detected, skip further processing
     if not face_encodings:
@@ -97,15 +99,16 @@ def draw_results(frame):
         left *= cv_scaler
 
         # Draw a box around the face
-        box_color = (
-            (0, 255, 0) if name != "Unknown" else (0, 0, 255)
-        )  # Green for known, red for unknown
+        box_color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
+        # Green for known, red for unknown
         cv2.rectangle(frame, (left, top), (right, bottom), box_color, 3)
 
         # Draw a label with a name below the face
-        cv2.rectangle(frame, (left, top - 35), (right, top), box_color, cv2.FILLED)
+        cv2.rectangle(frame, (left, top - 35),
+                      (right, top), box_color, cv2.FILLED)
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(frame, name, (left + 6, top - 6), font, 1.0, (255, 255, 255), 1)
+        cv2.putText(frame, name, (left + 6, top - 6),
+                    font, 1.0, (255, 255, 255), 1)
 
     return frame
 
@@ -185,4 +188,3 @@ while True:
 # Cleanup
 cv2.destroyAllWindows()
 cap.release()
-
