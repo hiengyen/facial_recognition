@@ -14,9 +14,12 @@ for i, imagePath in enumerate(imagePaths):
     name = imagePath.split(os.path.sep)[-2]
 
     image = cv2.imread(imagePath)
-    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    scale_factor = 0.5
+    resized_image = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
+    # rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    rgb = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
 
-    boxes = face_recognition.face_locations(rgb, model="cnn")
+    boxes = face_recognition.face_locations(rgb, model="hog")
     encodings = face_recognition.face_encodings(rgb, boxes)
 
     for encoding in encodings:

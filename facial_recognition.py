@@ -38,23 +38,21 @@ if not os.path.exists(unknown_faces_dir):
 if not os.path.exists(csv_file):
     with open(csv_file, mode="w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Name", "Timestamp"])  # Header row
+        writer.writerow(["Name", "Date", "Time"])
 
 
 def process_frame(frame):
     global face_locations, face_encodings, face_names
 
     # Resize the frame using cv_scaler to increase performance
-    resized_frame = cv2.resize(frame, (0, 0), fx=(
-        1 / cv_scaler), fy=(1 / cv_scaler))
+    resized_frame = cv2.resize(frame, (0, 0), fx=(1 / cv_scaler), fy=(1 / cv_scaler))
 
     # Convert the image from BGR to RGB colour space
     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
 
     # Find all the faces and face encodings in the current frame of video
     face_locations = face_recognition.face_locations(rgb_resized_frame)
-    face_encodings = face_recognition.face_encodings(
-        rgb_resized_frame, face_locations)
+    face_encodings = face_recognition.face_encodings(rgb_resized_frame, face_locations)
 
     # If no faces are detected, skip further processing
     if not face_encodings:
@@ -104,11 +102,9 @@ def draw_results(frame):
         cv2.rectangle(frame, (left, top), (right, bottom), box_color, 3)
 
         # Draw a label with a name below the face
-        cv2.rectangle(frame, (left, top - 35),
-                      (right, top), box_color, cv2.FILLED)
+        cv2.rectangle(frame, (left, top - 35), (right, top), box_color, cv2.FILLED)
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(frame, name, (left + 6, top - 6),
-                    font, 1.0, (255, 255, 255), 1)
+        cv2.putText(frame, name, (left + 6, top - 6), font, 1.0, (255, 255, 255), 1)
 
     return frame
 
@@ -140,15 +136,30 @@ def save_unknown_face(frame, face_location):
     print(f"[INFO] Saved unknown face to {file_path}")
 
 
+# def record_recognized_person_once(name):
+#     # Only record if the name has not been saved before
+#     if name not in recognized_names:
+#         recognized_names.add(name)  # Add to the set
+#         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+#         with open(csv_file, mode="a", newline="") as file:
+#             writer = csv.writer(file)
+#             writer.writerow([name, timestamp])
+#         print(f"[INFO] Recorded {name} at {timestamp}")
 def record_recognized_person_once(name):
     # Only record if the name has not been saved before
     if name not in recognized_names:
         recognized_names.add(name)  # Add to the set
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Get current date and time
+        current_time = time.strftime("%H:%M:%S")
+        current_date = time.strftime("%d-%m-%Y")
+
+        # Write to the CSV file
         with open(csv_file, mode="a", newline="") as file:
             writer = csv.writer(file)
-            writer.writerow([name, timestamp])
-        print(f"[INFO] Recorded {name} at {timestamp}")
+            # Add date and time
+            writer.writerow([name, current_date, current_time])
+        print(f"[INFO] Recorded {name} on {current_date} at {current_time}")
 
 
 while True:
