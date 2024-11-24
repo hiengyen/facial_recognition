@@ -10,24 +10,21 @@ import csv
 print("[INFO] Loading encodings...")
 with open("encodings.pickle", "rb") as f:
     data = pickle.loads(f.read())
-# known_face_encodings = data["encodings"]
-# Use NumPy for faster operations
 known_face_encodings = np.array(data["encodings"])
 known_face_names = data["names"]
-
 
 # Initialize the USB camera
 cap = cv2.VideoCapture(0)
 
 # Initialize variables
-cv_scaler = 2  # Hệ số tỉ lệ giảm khung hình (giảm ít hơn để giữ chi tiết)
+cv_scaler = 2  # Scaling factor for performance
 face_locations = []
 face_encodings = []
 face_names = []
 frame_count = 0
 start_time = time.time()
 fps = 0
-unknown_faces_dir = "unknown_faces"  # Unknown directory
+unknown_faces_dir = "unknown_faces"  # Directory for unknown faces
 csv_file = "recognized_faces.csv"  # CSV file
 
 # Track recognized names to avoid duplicate CSV entries
@@ -42,6 +39,12 @@ if not os.path.exists(csv_file):
     with open(csv_file, mode="w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["Name", "Date", "Time"])
+
+# Limit variables for saving unknown faces
+unknown_face_save_limit = 10  # Max number of unknown faces to save
+unknown_face_save_interval = 5  # Minimum interval (in seconds) between saves
+unknown_face_last_saved_time = 0
+unknown_face_count = 0
 
 
 def process_frame(frame):
@@ -65,7 +68,7 @@ def process_frame(frame):
     face_names = []
     for i, face_encoding in enumerate(face_encodings):
         # Adjust tolerance for comparison (lower tolerance = stricter matching)
-        tolerance = 0.5  # Ngưỡng so sánh (mặc định là 0.6)
+        tolerance = 0.5
         matches = face_recognition.compare_faces(
             known_face_encodings, face_encoding, tolerance=tolerance
         )
@@ -81,9 +84,9 @@ def process_frame(frame):
             name = known_face_names[best_match_index]
             # Record recognized person into the CSV file only once
             record_recognized_person_once(name)
-        # else:
-        #     # Save unknown face to disk for later processing
-        #     save_unknown_face(frame, face_locations[i])
+        else:
+            # Save unknown face to disk for later processing
+            save_unknown_face(frame, face_locations[i])
 
         face_names.append(name)
 
@@ -102,12 +105,12 @@ def draw_results(frame):
         # Draw a box around the face
         box_color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
         # Green for known, red for unknown
-        cv2.rectangle(frame, (left, top), (right, bottom), box_color, 1)
+        cv2.rectangle(frame, (left, top), (right, bottom), box_color, 3)
 
         # Draw a label with a name below the face
         cv2.rectangle(frame, (left, top - 35), (right, top), box_color, cv2.FILLED)
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(frame, name, (left, top - 6), font, 0.7, (0, 0, 0), 1)
+        cv2.putText(frame, name, (left + 6, top - 6), font, 1.0, (255, 255, 255), 1)
 
     return frame
 
@@ -124,6 +127,17 @@ def calculate_fps():
 
 
 def save_unknown_face(frame, face_location):
+    global unknown_face_last_saved_time, unknown_face_count
+
+    # Check if the save limit or time interval is exceeded
+    current_time = time.time()
+    if unknown_face_count >= unknown_face_save_limit:
+        print("[INFO] Unknown face save limit reached. Skipping save.")
+        return
+    if current_time - unknown_face_last_saved_time < unknown_face_save_interval:
+        print("[INFO] Minimum save interval not reached. Skipping save.")
+        return
+
     # Extract face location
     top, right, bottom, left = face_location
     top *= cv_scaler
@@ -138,11 +152,15 @@ def save_unknown_face(frame, face_location):
     cv2.imwrite(file_path, face_image)
     print(f"[INFO] Saved unknown face to {file_path}")
 
+    # Update save tracker
+    unknown_face_last_saved_time = current_time
+    unknown_face_count += 1
+
 
 def record_recognized_person_once(name):
     # Only record if the name has not been saved before
     if name not in recognized_names:
-        recognized_names.add(name)  # Add to the set
+        recognized_names.add(name)
 
         # Get current date and time
         current_time = time.strftime("%H:%M:%S")
@@ -151,7 +169,6 @@ def record_recognized_person_once(name):
         # Write to the CSV file
         with open(csv_file, mode="a", newline="") as file:
             writer = csv.writer(file)
-            # Add date and time
             writer.writerow([name, current_date, current_time])
         print(f"[INFO] Recorded {name} on {current_date} at {current_time}")
 
