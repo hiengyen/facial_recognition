@@ -4,7 +4,7 @@ from datetime import datetime
 import time
 
 # Change this to the name of the person you're photographing
-PERSON_NAME = "dung"
+PERSON_NAME = input("Enter the name of the student:")
 
 
 def create_folder(name):
@@ -22,7 +22,8 @@ def capture_photos(name):
     folder = create_folder(name)
 
     # Initialize the webcam
-    cap = cv2.VideoCapture(0)  # 0 is usually the default device ID for USB webcams
+    # 0 is usually the default device ID for USB webcams
+    cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Could not open webcam.")
         return

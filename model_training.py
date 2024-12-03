@@ -3,7 +3,6 @@ from imutils import paths
 import face_recognition
 import pickle
 import cv2
-from multiprocessing import Pool
 
 
 print("[INFO] start processing faces...")
