@@ -4,25 +4,27 @@ from datetime import datetime
 import time
 
 # Change this to the name of the person you're photographing
+IDENTIFICATION = input("Enter the ID of the student:")
 PERSON_NAME = input("Enter the name of the student:")
 
 
-def create_folder(name):
+def create_folder(identification, name):
     dataset_folder = "dataset"
     if not os.path.exists(dataset_folder):
         os.makedirs(dataset_folder)
 
-    person_folder = os.path.join(dataset_folder, name)
+    # Combine identification and name into the folder name
+    folder_name = f"{identification} - {name}"
+    person_folder = os.path.join(dataset_folder, folder_name)
     if not os.path.exists(person_folder):
         os.makedirs(person_folder)
     return person_folder
 
 
-def capture_photos(name):
-    folder = create_folder(name)
+def capture_photos(identification, name):
+    folder = create_folder(identification, name)
 
     # Initialize the webcam
-    # 0 is usually the default device ID for USB webcams
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Could not open webcam.")
@@ -50,7 +52,7 @@ def capture_photos(name):
         if key == ord(" "):  # Space key
             photo_count += 1
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{name}_{timestamp}.jpg"
+            filename = f"{identification}_{name}_{timestamp}.jpg"
             filepath = os.path.join(folder, filename)
             cv2.imwrite(filepath, frame)
             print(f"Photo {photo_count} saved: {filepath}")
@@ -65,4 +67,4 @@ def capture_photos(name):
 
 
 if __name__ == "__main__":
-    capture_photos(PERSON_NAME)
+    capture_photos(IDENTIFICATION, PERSON_NAME)
