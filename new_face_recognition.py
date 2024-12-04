@@ -50,7 +50,7 @@ if not os.path.exists(unknown_faces_dir):
 if not os.path.exists(csv_file):
     with open(csv_file, mode="w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Student ID", "Name", "Date", "Time"])
+        writer.writerow(["StudentID", "Name", "Date", "Time"])
 
 
 def process_frame(frame):
@@ -71,7 +71,7 @@ def process_frame(frame):
     face_names = []
     for i, face_encoding in enumerate(face_encodings):
         # Adjust tolerance for comparison (lower tolerance = stricter matching)
-        tolerance = 0.5
+        tolerance = 0.45
         matches = face_recognition.compare_faces(
             known_face_encodings, face_encoding, tolerance=tolerance)
         name = "Unknown"
@@ -89,9 +89,9 @@ def process_frame(frame):
             name = f"{student_id} - {student_name}"
             record_recognized_person_once(student_id, student_name)
             upload_record_to_firebase(student_id, student_name)
-        else:
-            # Save unknown face for later processing
-            save_unknown_face(frame, face_locations[i])
+        # else:
+        #     # Save unknown face for later processing
+        #     save_unknown_face(frame, face_locations[i])
 
         face_names.append(name)
 
@@ -113,6 +113,7 @@ def record_recognized_person_once(student_id, student_name):
                             current_date, current_time])
         print(
             f"[INFO] Recorded {student_id} - {student_name} on {current_date} at {current_time}")
+        return
 
 
 def upload_record_to_firebase(student_id, student_name):
@@ -120,28 +121,63 @@ def upload_record_to_firebase(student_id, student_name):
     vn_now = datetime.now(vn_tz)
     current_time = vn_now.strftime("%H:%M:%S")
     current_date = vn_now.strftime("%d-%m-%Y")
+    # Tham chiếu tới nhánh "students"
+    ref_students = db.reference("students")
 
+    # Danh sách thông tin 5 người dùng mặc định
+    users = [
+        {"student_id": "CT060412", "student_name": "Nguyen Trung Hieu",
+         "rfid_code": "9FE9721C"},
+        {"student_id": "CT060406", "student_name": "Nguyen Minh Duc ",
+         "rfid_code": "BFA8661F"},
+        {"student_id": "CT060331", "student_name": "Nguyen Minh Phuong",
+         "rfid_code": "EFF85A1F"},
+    ]
+
+    if not ref_students.get():  # if branch not exists
+        for user in users:
+            ref_students.child(user['rfid_code']).set(
+                {"student_id": user["student_id"],
+                 "student_name": user["student_name"],
+                 "rfid_code": user["rfid_code"]
+                 })
+
+        # Set tất cả dữ liệu cùng một lúc
     try:
         # Tham chiếu đến nhánh "recognized_faces"
-        ref = db.reference("recognized_faces")
-        records = ref.get()  # Lấy tất cả bản ghi từ Firebase
 
-        # Kiểm tra nếu bản ghi đã tồn tại
-        for record in records.values() if records else []:
-            if record["student_id"] == student_id and record["date"] == current_date:
-                print(f"[INFO] Record for {student_id} already exists.")
-                return
+        ref_face_record = db.reference("recognized_faces")
+        ref_attendance_record = db.reference("students_attendance")
+        # Lấy tất cả bản ghi từ Firebase
+        records = ref_face_record.child(student_id).get()
 
-        # Đẩy dữ liệu mới lên Firebase
-        ref.push({
-            "student_id": student_id,
+        # Kiểm tra sự tồn tại của bản ghi
+        if records:
+            print(
+                f"[INFO] Record for student_id '{student_id}' already exists.")
+            return  # Dừng xử lý nếu bản ghi đã tồn tại
+
+        ref_face_record.child(student_id).set({
             "student_name": student_name,
             "date": current_date,
-            "time": current_time
+            "time": current_time,
+            "state": 0
         })
-        print(f"[INFO] Uploaded record for {student_id} to Firebase")
+        ref_attendance_record.child(student_id).set({
+            "student_name": student_name,
+            "date": current_date,
+            "checkin": current_time,
+            "checkout": "",
+            "state": "",
+        })
+
+        # print(
+        #     f"[INFO] Uploaded record for {student_name} at {current_time} on {current_date} to Firebase")
+    except RuntimeError as re:
+        print(f"[ERROR] Initialization error: {re}")
     except Exception as e:
-        print(f"[ERROR] Failed to upload record: {e}")
+        print(
+            f"[ERROR] Failed to upload record for {student_name} to Firebase: {e}")
 
 
 def draw_results(frame):
@@ -215,4 +251,5 @@ while True:
         break
 
 cap.release()
+cv2.destroyAllWindows()
 cv2.destroyAllWindows()

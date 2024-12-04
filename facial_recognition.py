@@ -73,7 +73,7 @@ def process_frame(frame):
     face_names = []
     for i, face_encoding in enumerate(face_encodings):
         # Adjust tolerance for comparison (lower tolerance = stricter matching)
-        tolerance = 0.5  # Ngưỡng so sánh (mặc định là 0.6)
+        tolerance = 0.45  # default is 0.6
         matches = face_recognition.compare_faces(
             known_face_encodings, face_encoding, tolerance=tolerance
         )
