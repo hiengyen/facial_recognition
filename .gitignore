@@ -1,4 +1,5 @@
 dataset/*
 unknown_faces/*
 firebase-adminsdk.json
+recognized_faces.csv
 

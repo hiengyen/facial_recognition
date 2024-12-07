@@ -1,5 +1,5 @@
 face_recognition
-opencv
+opencv-python
 numpy 
 pickle5
 dblib

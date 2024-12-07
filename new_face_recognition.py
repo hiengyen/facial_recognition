@@ -10,11 +10,12 @@ from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, db
 
-# Khởi tạo Firebase Admin SDK
+# Init  Firebase Admin SDK
 cred = credentials.Certificate("./firebase-adminsdk.json")
 firebase_admin.initialize_app(cred, {
     "databaseURL": "https://smart-school-firebase-default-rtdb.asia-southeast1.firebasedatabase.app/"
 })
+
 
 # Load pre-trained face encodings
 print("[INFO] Loading encodings...")
@@ -23,13 +24,13 @@ with open("encodings.pickle", "rb") as f:
 
 # Use NumPy for faster operations
 known_face_encodings = np.array(data["encodings"])
-known_student_info = data["student_info"]  # Danh sách chứa "id" và "name"
+known_student_info = data["student_info"]  # List contain "id" and "name"
 
 # Initialize the USB camera
 cap = cv2.VideoCapture(0)
 
 # Initialize variables
-cv_scaler = 4  # Hệ số tỉ lệ giảm khung hình (giảm ít hơn để giữ chi tiết)
+cv_scaler = 2  # Hệ số tỉ lệ giảm khung hình (giảm ít hơn để giữ chi tiết)
 face_locations = []
 face_encodings = []
 face_names = []

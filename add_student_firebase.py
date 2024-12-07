@@ -14,6 +14,7 @@ ref_students = db.reference("students")
 users = [
     {"student_id": "CT060409", "student_name": "Tran Luu Dung",
      "rfid_code": "1A2B3C4D"},
+
     # {"student_id": "", "student_name": "","rfid_code": ""}
 ]
 
