@@ -9,13 +9,17 @@ import pytz
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, db
+import threading
+
 
 # Init  Firebase Admin SDK
 cred = credentials.Certificate("./firebase-adminsdk.json")
-firebase_admin.initialize_app(cred, {
-    "databaseURL": "https://smart-school-firebase-default-rtdb.asia-southeast1.firebasedatabase.app/"
-})
-
+firebase_admin.initialize_app(
+    cred,
+    {
+        "databaseURL": "https://smart-school-firebase-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    },
+)
 
 # Load pre-trained face encodings
 print("[INFO] Loading encodings...")
@@ -24,13 +28,13 @@ with open("encodings.pickle", "rb") as f:
 
 # Use NumPy for faster operations
 known_face_encodings = np.array(data["encodings"])
-known_student_info = data["student_info"]  # List contain "id" and "name"
-
+# List contain "id" and "name"
+known_student_info = data["student_info"]
 # Initialize the USB camera
 cap = cv2.VideoCapture(0)
 
 # Initialize variables
-cv_scaler = 2  # Hệ số tỉ lệ giảm khung hình (giảm ít hơn để giữ chi tiết)
+cv_scaler = 4
 face_locations = []
 face_encodings = []
 face_names = []
@@ -65,7 +69,8 @@ def process_frame(frame):
     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
 
     # Find all the faces and face encodings in the current frame of video
-    face_locations = face_recognition.face_locations(rgb_resized_frame)
+    face_locations = face_recognition.face_locations(
+        rgb_resized_frame, model="hog")
     face_encodings = face_recognition.face_encodings(
         rgb_resized_frame, face_locations)
 
@@ -74,13 +79,15 @@ def process_frame(frame):
         # Adjust tolerance for comparison (lower tolerance = stricter matching)
         tolerance = 0.45
         matches = face_recognition.compare_faces(
-            known_face_encodings, face_encoding, tolerance=tolerance)
+            known_face_encodings, face_encoding, tolerance=tolerance
+        )
         name = "Unknown"
         student_id = "Unknown"
 
         # Use the known face with the smallest distance to the new face
         face_distances = face_recognition.face_distance(
-            known_face_encodings, face_encoding)
+            known_face_encodings, face_encoding
+        )
         best_match_index = np.argmin(face_distances)
 
         if matches[best_match_index]:
@@ -88,8 +95,11 @@ def process_frame(frame):
             student_id = matched_info["id"]
             student_name = matched_info["name"]
             name = f"{student_id} - {student_name}"
-            record_recognized_person_once(student_id, student_name)
-            upload_record_to_firebase(student_id, student_name)
+            # record_recognized_person_once(student_id, student_name)
+            # upload_record_to_firebase(student_id, student_name)
+            async_upload(student_id, student_name)
+            async_record(student_id, student_name)
+
         # else:
         #     # Save unknown face for later processing
         #     save_unknown_face(frame, face_locations[i])
@@ -97,6 +107,18 @@ def process_frame(frame):
         face_names.append(name)
 
     return frame
+
+
+def async_upload(student_id, student_name):
+    threading.Thread(
+        target=upload_record_to_firebase, args=(student_id, student_name)
+    ).start()
+
+
+def async_record(student_id, student_name):
+    threading.Thread(
+        target=record_recognized_person_once, args=(student_id, student_name)
+    ).start()
 
 
 def record_recognized_person_once(student_id, student_name):
@@ -113,7 +135,8 @@ def record_recognized_person_once(student_id, student_name):
             writer.writerow([student_id, student_name,
                             current_date, current_time])
         print(
-            f"[INFO] Recorded {student_id} - {student_name} on {current_date} at {current_time}")
+            f"[INFO] Recorded {student_id} - {student_name} on {current_date} at {current_time}"
+        )
         return
 
 
@@ -122,55 +145,68 @@ def upload_record_to_firebase(student_id, student_name):
     vn_now = datetime.now(vn_tz)
     current_time = vn_now.strftime("%H:%M:%S")
     current_date = vn_now.strftime("%d-%m-%Y")
-    # Tham chiếu tới nhánh "students"
+
     ref_students = db.reference("students")
 
-    # Danh sách thông tin 5 người dùng mặc định
     users = [
-        {"student_id": "CT060412", "student_name": "Nguyen Trung Hieu",
-         "rfid_code": "9FE9721C"},
-        {"student_id": "CT060406", "student_name": "Nguyen Minh Duc ",
-         "rfid_code": "BFA8661F"},
-        {"student_id": "CT060331", "student_name": "Nguyen Minh Phuong",
-         "rfid_code": "EFF85A1F"},
+        {
+            "student_id": "CT060412",
+            "student_name": "Nguyen Trung Hieu",
+            "rfid_code": "9FE9721C",
+        },
+        {
+            "student_id": "CT060406",
+            "student_name": "Nguyen Minh Duc ",
+            "rfid_code": "BFA8661F",
+        },
+        {
+            "student_id": "CT060331",
+            "student_name": "Nguyen Minh Phuong",
+            "rfid_code": "EFF85A1F",
+        },
     ]
 
     if not ref_students.get():  # if branch not exists
         for user in users:
-            ref_students.child(user['rfid_code']).set(
-                {"student_id": user["student_id"],
-                 "student_name": user["student_name"],
-                 "rfid_code": user["rfid_code"]
-                 })
+            ref_students.child(user["rfid_code"]).set(
+                {
+                    "student_id": user["student_id"],
+                    "student_name": user["student_name"],
+                    "rfid_code": user["rfid_code"],
+                }
+            )
 
-        # Set tất cả dữ liệu cùng một lúc
     try:
-        # Tham chiếu đến nhánh "recognized_faces"
 
         ref_face_record = db.reference("recognized_faces")
         ref_attendance_record = db.reference("students_attendance")
-        # Lấy tất cả bản ghi từ Firebase
+        # get all record
         records = ref_face_record.child(student_id).get()
 
-        # Kiểm tra sự tồn tại của bản ghi
         if records:
-            print(
-                f"[INFO] Record for student_id '{student_id}' already exists.")
-            return  # Dừng xử lý nếu bản ghi đã tồn tại
+            # print(
+            #     f"[INFO] Record for student_id '{
+            #       student_id}' already exists."
+            # )
+            return
 
-        ref_face_record.child(student_id).set({
-            "student_name": student_name,
-            "date": current_date,
-            "time": current_time,
-            "state": 0
-        })
-        ref_attendance_record.child(student_id).set({
-            "student_name": student_name,
-            "date": current_date,
-            "checkin": current_time,
-            "checkout": "",
-            "state": "",
-        })
+        ref_face_record.child(student_id).set(
+            {
+                "student_name": student_name,
+                "date": current_date,
+                "time": current_time,
+                "state": 0,
+            }
+        )
+        ref_attendance_record.child(student_id).set(
+            {
+                "student_name": student_name,
+                "date": current_date,
+                "checkin": current_time,
+                "checkout": "",
+                "state": "",
+            }
+        )
 
         # print(
         #     f"[INFO] Uploaded record for {student_name} at {current_time} on {current_date} to Firebase")
@@ -178,7 +214,8 @@ def upload_record_to_firebase(student_id, student_name):
         print(f"[ERROR] Initialization error: {re}")
     except Exception as e:
         print(
-            f"[ERROR] Failed to upload record for {student_name} to Firebase: {e}")
+            f"[ERROR] Failed to upload record for {student_name} to Firebase: {e}"
+        )
 
 
 def draw_results(frame):
@@ -231,8 +268,10 @@ while True:
     if not ret:
         print("[ERROR] Failed to capture image")
         break
+    if frame_count % 10 == 0:
+        processed_frame = process_frame(frame)
 
-    processed_frame = process_frame(frame)
+    # processed_frame = process_frame(frame)
     display_frame = draw_results(processed_frame)
 
     current_fps = calculate_fps()
@@ -252,5 +291,4 @@ while True:
         break
 
 cap.release()
-cv2.destroyAllWindows()
 cv2.destroyAllWindows()

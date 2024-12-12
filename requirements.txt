@@ -1,8 +1,9 @@
+setuptools
 face_recognition
 opencv-python
 numpy 
-pickle5
-dblib
+dill # pickle wrapper
+# pickle5
+imutils
 pytz
 firebase_admin
-
