@@ -62,17 +62,14 @@ def process_frame(frame):
     global face_locations, face_encodings, face_names
 
     # Resize the frame using cv_scaler to increase performance
-    resized_frame = cv2.resize(frame, (0, 0), fx=(
-        1 / cv_scaler), fy=(1 / cv_scaler))
+    resized_frame = cv2.resize(frame, (0, 0), fx=(1 / cv_scaler), fy=(1 / cv_scaler))
 
     # Convert the image from BGR to RGB colour space
     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
 
     # Find all the faces and face encodings in the current frame of video
-    face_locations = face_recognition.face_locations(
-        rgb_resized_frame, model="hog")
-    face_encodings = face_recognition.face_encodings(
-        rgb_resized_frame, face_locations)
+    face_locations = face_recognition.face_locations(rgb_resized_frame)
+    face_encodings = face_recognition.face_encodings(rgb_resized_frame, face_locations)
 
     face_names = []
     for i, face_encoding in enumerate(face_encodings):
@@ -132,10 +129,10 @@ def record_recognized_person_once(student_id, student_name):
         recognized_names.add(student_id)
         with open(csv_file, mode="a", newline="") as file:
             writer = csv.writer(file)
-            writer.writerow([student_id, student_name,
-                            current_date, current_time])
+            writer.writerow([student_id, student_name, current_date, current_time])
         print(
-            f"[INFO] Recorded {student_id} - {student_name} on {current_date} at {current_time}"
+            f"[INFO] Recorded {
+                student_id} - {student_name} on {current_date} at {current_time}"
         )
         return
 
@@ -177,7 +174,6 @@ def upload_record_to_firebase(student_id, student_name):
             )
 
     try:
-
         ref_face_record = db.reference("recognized_faces")
         ref_attendance_record = db.reference("students_attendance")
         # get all record
@@ -214,7 +210,8 @@ def upload_record_to_firebase(student_id, student_name):
         print(f"[ERROR] Initialization error: {re}")
     except Exception as e:
         print(
-            f"[ERROR] Failed to upload record for {student_name} to Firebase: {e}"
+            f"[ERROR] Failed to upload record for {
+                student_name} to Firebase: {e}"
         )
 
 
@@ -230,8 +227,7 @@ def draw_results(frame):
         cv2.rectangle(frame, (left, top), (right, bottom), box_color, 2)
 
         # Draw a label with the name below the face
-        cv2.rectangle(frame, (left, top - 35),
-                      (right, top), box_color, cv2.FILLED)
+        cv2.rectangle(frame, (left, top - 35), (right, top), box_color, cv2.FILLED)
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(frame, name, (left + 6, top - 6), font, 0.5, (0, 0, 0), 1)
 

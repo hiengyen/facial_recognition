@@ -1,15 +1,15 @@
 import os
 from imutils import paths
 import face_recognition
-# import dill as pickle
-import pickle
 import cv2
+import dill as pickle
+# import pickle
 
 
 print("[INFO] Start processing faces...")
 imagePaths = list(paths.list_images("dataset"))
 knownEncodings = []
-knownStudentInfo = []  # Danh sách chứa thông tin sinh viên (mã + tên)
+knownStudentInfo = []  # list students
 
 for i, imagePath in enumerate(imagePaths):
     print(f"[INFO] Processing image {i + 1}/{len(imagePaths)}")
@@ -18,15 +18,12 @@ for i, imagePath in enumerate(imagePaths):
     folder_name = imagePath.split(os.path.sep)[-2]
 
     try:
-        # Tách mã sinh viên và tên
+        # Split ID - Name
         student_id, student_name = folder_name.split(" - ", 1)
     except ValueError:
-        print(
-            f"[WARNING] Folder '{folder_name}' wrong format"
-        )
+        print(f"[WARNING] Folder '{folder_name}' wrong format")
         continue
-
-    # Đọc ảnh và xử lý
+    # Process image
     image = cv2.imread(imagePath)
     scale_factor = 0.5
     resized_image = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
