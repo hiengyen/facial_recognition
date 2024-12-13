@@ -57,7 +57,7 @@ if not os.path.exists(csv_file):
         writer.writerow(["StudentID", "Name", "Date", "Time"])
 
 # ThreadPoolExecutor for concurrent processing
-executor = ThreadPoolExecutor(max_workers=4)
+executor = ThreadPoolExecutor(max_workers=8)
 
 
 def process_face(face_encoding, i, frame):
@@ -121,7 +121,7 @@ def record_recognized_person_once(student_id, student_name):
             writer.writerow([student_id, student_name, current_date, current_time])
         print(
             f"[INFO] Recorded {
-              student_id} - {student_name} on {current_date} at {current_time}"
+                student_id} - {student_name} on {current_date} at {current_time}"
         )
 
 
@@ -180,7 +180,7 @@ def upload_record_to_firebase(student_id, student_name):
     except Exception as e:
         print(
             f"[ERROR] Failed to upload record for {
-              student_name} to Firebase: {e}"
+                student_name} to Firebase: {e}"
         )
 
 
