@@ -34,7 +34,7 @@ known_student_info = data["student_info"]
 cap = cv2.VideoCapture(0)
 
 # Initialize variables
-cv_scaler = 4
+cv_scaler = 2
 face_locations = []
 face_encodings = []
 face_names = []
@@ -94,14 +94,11 @@ def process_frame(frame):
             student_id = matched_info["id"]
             student_name = matched_info["name"]
             name = f"{student_id} - {student_name}"
-            # record_recognized_person_once(student_id, student_name)
-            # upload_record_to_firebase(student_id, student_name)
             async_upload(student_id, student_name)
             async_record(student_id, student_name)
-
-        # else:
-        #     # Save unknown face for later processing
-        #     save_unknown_face(frame, face_locations[i])
+        else:
+            # Save unknown face for later processing
+            save_unknown_face(frame, face_locations[i])
 
         face_names.append(name)
 
@@ -122,7 +119,8 @@ def async_record(student_id, student_name):
 
 def record_recognized_person_once(student_id, student_name):
     # Using Vietnam timezone
-    vn_tz = pytz.timezone("Asia/Ho_Chi_Minh")
+    vn_tz = pytz.timezone("Pacific/Kiritimati")
+    # vn_tz = pytz.timezone("Asia/Ho_Chi_Minh")
     vn_now = datetime.now(vn_tz)
     current_time = vn_now.strftime("%H:%M:%S")
     current_date = vn_now.strftime("%d-%m-%Y")
@@ -139,6 +137,7 @@ def record_recognized_person_once(student_id, student_name):
 
 
 def upload_record_to_firebase(student_id, student_name):
+    # vn_tz = pytz.timezone("Pacific/Kiritimati")
     vn_tz = pytz.timezone("Asia/Ho_Chi_Minh")
     vn_now = datetime.now(vn_tz)
     current_time = vn_now.strftime("%H:%M:%S")
@@ -178,16 +177,16 @@ def upload_record_to_firebase(student_id, student_name):
         ref_face_record = db.reference("recognized_faces")
         ref_attendance_record = db.reference("students_attendance")
         # get all record
-        records = ref_face_record.child(student_id).get()
+        records_today = ref_face_record.child(
+            current_date).child(student_id).get()
 
-        if records:
-            # print(
-            #     f"[INFO] Record for student_id '{
-            #       student_id}' already exists."
-            # )
+        if records_today:
+            print(
+                f"[INFO] Record for student_id '{student_id}' on date '{current_date}' already exists."
+            )
             return
 
-        ref_face_record.child(student_id).set(
+        ref_face_record.child(current_date).child(student_id).set(
             {
                 "student_name": student_name,
                 "date": current_date,
@@ -195,7 +194,7 @@ def upload_record_to_firebase(student_id, student_name):
                 "state": 0,
             }
         )
-        ref_attendance_record.child(student_id).set(
+        ref_attendance_record.child(current_date).child(student_id).set(
             {
                 "student_name": student_name,
                 "date": current_date,
@@ -282,6 +281,8 @@ while True:
         2,
     )
 
+    cv2.namedWindow("Video")
+    cv2.moveWindow("Video", 900, 0)
     cv2.imshow("Video", display_frame)
 
     if cv2.waitKey(1) == ord("q"):
