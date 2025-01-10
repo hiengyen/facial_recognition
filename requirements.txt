@@ -3,7 +3,7 @@ face_recognition
 opencv-python
 numpy 
 dill # pickle wrapper
-# pickle5
+pickle5
 imutils
 pytz
 firebase_admin

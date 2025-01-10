@@ -2,7 +2,8 @@ import face_recognition
 import cv2
 import numpy as np
 import time
-import pickle
+# import pickle
+import dill as pickle
 import os
 import csv
 import pytz
@@ -58,12 +59,63 @@ if not os.path.exists(csv_file):
         writer.writerow(["StudentID", "Name", "Date", "Time"])
 
 
+# def process_frame(frame):
+#     global face_locations, face_encodings, face_names
+#
+#     # Resize the frame using cv_scaler to increase performance
+#     resized_frame = cv2.resize(frame, (0, 0), fx=(
+#         1 / cv_scaler), fy=(1 / cv_scaler))
+#
+#     # Convert the image from BGR to RGB colour space
+#     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
+#
+#     # Find all the faces and face encodings in the current frame of video
+#     face_locations = face_recognition.face_locations(
+#         rgb_resized_frame)
+#     face_encodings = face_recognition.face_encodings(
+#         rgb_resized_frame, face_locations)
+#
+#     face_names = []
+#     for i, face_encoding in enumerate(face_encodings):
+#         # Adjust tolerance for comparison (lower tolerance = stricter matching)
+#         tolerance = 0.4
+#         matches = face_recognition.compare_faces(
+#             known_face_encodings, face_encoding, tolerance=tolerance
+#         )
+#         name = "Unknown"
+#         student_id = "Unknown"
+#
+#         # Use the known face with the smallest distance to the new face
+#         face_distances = face_recognition.face_distance(
+#             known_face_encodings, face_encoding
+#         )
+#         best_match_index = np.argmin(face_distances)
+#
+#         if matches[best_match_index]:
+#             matched_info = known_student_info[best_match_index]
+#             student_id = matched_info["id"]
+#             student_name = matched_info["name"]
+#             name = f"{student_id} - {student_name}"
+#             async_upload(student_id, student_name)
+#             # async_record(student_id, student_name)
+#         else:
+#             # Save unknown face for later processing
+#             save_unknown_face(frame, face_locations[i])
+#
+#         face_names.append(name)
+#
+#     return frame
+#
+# Dictionary để lưu cache khuôn mặt đã nhận diện
+recognized_faces = {}  # Cấu trúc: {face_encoding_hash: "student_id - student_name"}
+
+
 def process_frame(frame):
-    global face_locations, face_encodings, face_names
+    global face_locations, face_encodings, face_names, recognized_faces
 
     # Resize the frame using cv_scaler to increase performance
-    resized_frame = cv2.resize(frame, (0, 0), fx=(
-        1 / cv_scaler), fy=(1 / cv_scaler))
+    resized_frame = cv2.resize(
+        frame, (0, 0), fx=1 / cv_scaler, fy=1 / cv_scaler)
 
     # Convert the image from BGR to RGB colour space
     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
@@ -75,30 +127,38 @@ def process_frame(frame):
 
     face_names = []
     for i, face_encoding in enumerate(face_encodings):
-        # Adjust tolerance for comparison (lower tolerance = stricter matching)
-        tolerance = 0.45
-        matches = face_recognition.compare_faces(
-            known_face_encodings, face_encoding, tolerance=tolerance
-        )
-        name = "Unknown"
-        student_id = "Unknown"
+        # Tạo một hash cho face_encoding để so sánh nhanh
+        # Giảm độ chính xác để hash nhanh hơn
+        face_encoding_hash = tuple(np.round(face_encoding, 5))
 
-        # Use the known face with the smallest distance to the new face
-        face_distances = face_recognition.face_distance(
-            known_face_encodings, face_encoding
-        )
-        best_match_index = np.argmin(face_distances)
-
-        if matches[best_match_index]:
-            matched_info = known_student_info[best_match_index]
-            student_id = matched_info["id"]
-            student_name = matched_info["name"]
-            name = f"{student_id} - {student_name}"
-            async_upload(student_id, student_name)
-            async_record(student_id, student_name)
+        # Kiểm tra nếu khuôn mặt đã được nhận diện trước đó
+        if face_encoding_hash in recognized_faces:
+            name = recognized_faces[face_encoding_hash]
         else:
-            # Save unknown face for later processing
-            save_unknown_face(frame, face_locations[i])
+            # Nếu không có trong cache, tiến hành nhận diện
+            tolerance = 0.4  # Adjust tolerance for comparison
+            matches = face_recognition.compare_faces(
+                known_face_encodings, face_encoding, tolerance=tolerance)
+            name = "Unknown"
+            student_id = "Unknown"
+
+            # Use the known face with the smallest distance to the new face
+            face_distances = face_recognition.face_distance(
+                known_face_encodings, face_encoding)
+            best_match_index = np.argmin(face_distances)
+
+            if matches[best_match_index]:
+                matched_info = known_student_info[best_match_index]
+                student_id = matched_info["id"]
+                student_name = matched_info["name"]
+                name = f"{student_id} - {student_name}"
+                async_upload(student_id, student_name)
+            else:
+                # Save unknown face for later processing
+                save_unknown_face(frame, face_locations[i])
+
+            # Lưu khuôn mặt đã nhận diện vào cache
+            recognized_faces[face_encoding_hash] = name
 
         face_names.append(name)
 
@@ -119,8 +179,8 @@ def async_record(student_id, student_name):
 
 def record_recognized_person_once(student_id, student_name):
     # Using Vietnam timezone
-    vn_tz = pytz.timezone("Pacific/Kiritimati")
-    # vn_tz = pytz.timezone("Asia/Ho_Chi_Minh")
+    # vn_tz = pytz.timezone("Pacific/Kiritimati")
+    vn_tz = pytz.timezone("Asia/Ho_Chi_Minh")
     vn_now = datetime.now(vn_tz)
     current_time = vn_now.strftime("%H:%M:%S")
     current_date = vn_now.strftime("%d-%m-%Y")
@@ -145,6 +205,7 @@ def upload_record_to_firebase(student_id, student_name):
 
     ref_students = db.reference("students")
 
+    # Init Users
     users = [
         {
             "student_id": "CT060412",
@@ -158,7 +219,7 @@ def upload_record_to_firebase(student_id, student_name):
         },
         {
             "student_id": "CT060331",
-            "student_name": "Nguyen Minh Phuong",
+            "student_name": "Dang Minh Phuong",
             "rfid_code": "EFF85A1F",
         },
     ]
@@ -191,7 +252,7 @@ def upload_record_to_firebase(student_id, student_name):
                 "student_name": student_name,
                 "date": current_date,
                 "time": current_time,
-                "state": 0,
+                "state": "0",
             }
         )
         ref_attendance_record.child(current_date).child(student_id).set(
@@ -270,16 +331,16 @@ while True:
     # processed_frame = process_frame(frame)
     display_frame = draw_results(processed_frame)
 
-    current_fps = calculate_fps()
-    cv2.putText(
-        display_frame,
-        f"FPS: {current_fps:.1f}",
-        (display_frame.shape[1] - 150, 30),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1,
-        (0, 255, 0),
-        2,
-    )
+    # current_fps = calculate_fps()
+    # cv2.putText(
+    #     display_frame,
+    #     f"FPS: {current_fps:.1f}",
+    #     (display_frame.shape[1] - 150, 30),
+    #     cv2.FONT_HERSHEY_SIMPLEX,
+    #     1,
+    #     (0, 255, 0),
+    #     2,
+    # )
 
     cv2.namedWindow("Video")
     cv2.moveWindow("Video", 900, 0)
