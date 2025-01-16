@@ -104,11 +104,11 @@ def init_users():
 
 
 def process_frame(frame):
-    global face_locations, face_encodings, face_names, recognized_faces
+    global face_locations, face_encodings, face_names
 
     # Resize the frame using cv_scaler to increase performance
-    resized_frame = cv2.resize(
-        frame, (0, 0), fx=1 / cv_scaler, fy=1 / cv_scaler)
+    resized_frame = cv2.resize(frame, (0, 0), fx=(
+        1 / cv_scaler), fy=(1 / cv_scaler))
 
     # Convert the image from BGR to RGB colour space
     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
@@ -120,38 +120,33 @@ def process_frame(frame):
 
     face_names = []
     for i, face_encoding in enumerate(face_encodings):
-        # Tạo một hash cho face_encoding để so sánh nhanh
-        # Giảm độ chính xác để hash nhanh hơn
-        face_encoding_hash = tuple(np.round(face_encoding, 5))
+        # Adjust tolerance for comparison (lower tolerance = stricter matching)
+        tolerance = 0.4
+        matches = face_recognition.compare_faces(
+            known_face_encodings, face_encoding, tolerance=tolerance
+        )
+        name = "Unknown"
+        student_id = "Unknown"
 
-        # Kiểm tra nếu khuôn mặt đã được nhận diện trước đó
-        if face_encoding_hash in recognized_faces:
-            name = recognized_faces[face_encoding_hash]
+        # Use the known face with the smallest distance to the new face
+        face_distances = face_recognition.face_distance(
+            known_face_encodings, face_encoding
+        )
+        best_match_index = np.argmin(face_distances)
+
+        if matches[best_match_index]:
+            matched_info = known_student_info[best_match_index]
+            student_id = matched_info["id"]
+            student_name = matched_info["name"]
+            name = f"{student_id} - {student_name}"
+            # record_recognized_person_once(student_id, student_name)
+            # upload_record_to_firebase(student_id, student_name)
+            async_upload(student_id, student_name)
+            # async_record(student_id, student_name)
+
         else:
-            # Nếu không có trong cache, tiến hành nhận diện
-            tolerance = 0.4  # Adjust tolerance for comparison
-            matches = face_recognition.compare_faces(
-                known_face_encodings, face_encoding, tolerance=tolerance)
-            name = "Unknown"
-            student_id = "Unknown"
-
-            # Use the known face with the smallest distance to the new face
-            face_distances = face_recognition.face_distance(
-                known_face_encodings, face_encoding)
-            best_match_index = np.argmin(face_distances)
-
-            if matches[best_match_index]:
-                matched_info = known_student_info[best_match_index]
-                student_id = matched_info["id"]
-                student_name = matched_info["name"]
-                name = f"{student_id} - {student_name}"
-                async_upload(student_id, student_name)
-            else:
-                # Save unknown face for later processing
-                save_unknown_face(frame, face_locations[i])
-
-            # Lưu khuôn mặt đã nhận diện vào cache
-            recognized_faces[face_encoding_hash] = name
+            # Save unknown face for later processing
+            save_unknown_face(frame, face_locations[i])
 
         face_names.append(name)
 

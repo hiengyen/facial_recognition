@@ -1,4 +1,6 @@
 setuptools
+cmake
+dlib
 face_recognition
 opencv-python
 numpy 
@@ -7,3 +9,4 @@ pickle5
 imutils
 pytz
 firebase_admin
+
